@@ -30,8 +30,8 @@ use nom::{
 };
 #[derive(Debug)]
 pub struct FormatString {
-    text: String,
-    fragments: Vec<(Format, String)>,
+    pub text: String,
+    pub fragments: Vec<(Format, String)>,
 }
 impl FormatString {
     pub fn parse(input: &str) -> IResult<&str, Self> {
@@ -40,6 +40,10 @@ impl FormatString {
                 .map(|(text, fragments)| FormatString { text, fragments }),
         )
         .parse(input)
+    }
+    /// Finds the named fields in this format string
+    pub fn named_fields(&self) -> impl Iterator<Item = &Argument> {
+        self.fragments.iter().map(|(f, _)| f.named_field())
     }
 }
 /// Parses the string part of a String format.
@@ -66,8 +70,8 @@ fn text(mut input: &str) -> IResult<&str, String> {
 }
 #[derive(Debug)]
 pub(crate) struct Format {
-    argument: Argument,
-    fmt_spec: FormatSpec,
+    pub argument: Argument,
+    pub fmt_spec: FormatSpec,
 }
 impl Format {
     fn parse(input: &str) -> IResult<&str, Self> {
@@ -91,6 +95,10 @@ impl Format {
         })
         .parse(input)
     }
+
+    fn named_field(&self) -> &Argument {
+        &self.argument
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Align {
@@ -110,13 +118,13 @@ impl Align {
 }
 #[derive(Clone, Debug, Default)]
 pub(crate) struct FormatSpec {
-    fill_align: Option<(Option<char>, Align)>,
-    sign: Option<Sign>,
-    alt_form: bool,
-    sign_aware_zero_pad: bool,
-    width: Option<Count>,
-    precision: Option<Precision>,
-    tpe: Type,
+    pub fill_align: Option<(Option<char>, Align)>,
+    pub sign: Option<Sign>,
+    pub alt_form: bool,
+    pub sign_aware_zero_pad: bool,
+    pub width: Option<Count>,
+    pub precision: Option<Precision>,
+    pub tpe: Type,
 }
 impl FormatSpec {
     fn parse(input: &str) -> IResult<&str, Self> {
@@ -159,6 +167,9 @@ pub(crate) enum Type {
     Pointer,
 }
 impl Type {
+    pub fn is_custom(&self) -> bool {
+        false
+    }
     fn parse(input: &str) -> IResult<&str, Self> {
         alt((
             value(Type::DebugLowerHex, tag("x?")),
@@ -228,6 +239,38 @@ impl Argument {
             nom::character::complete::usize.map(Argument::Intiger),
         ))
         .parse(input)
+    }
+
+    /// Returns `true` if the argument is [`Intiger`].
+    ///
+    /// [`Intiger`]: Argument::Intiger
+    #[must_use]
+    pub(crate) fn is_intiger(&self) -> bool {
+        matches!(self, Self::Intiger(..))
+    }
+
+    pub(crate) fn as_intiger(&self) -> Option<&usize> {
+        if let Self::Intiger(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the argument is [`Identifier`].
+    ///
+    /// [`Identifier`]: Argument::Identifier
+    #[must_use]
+    pub(crate) fn is_identifier(&self) -> bool {
+        matches!(self, Self::Identifier(..))
+    }
+
+    pub(crate) fn as_identifier(&self) -> Option<&String> {
+        if let Self::Identifier(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 #[derive(Clone, Debug)]
