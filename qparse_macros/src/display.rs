@@ -10,12 +10,9 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
     let mut writes = TokenStream::new();
     if !fmt.text.is_empty() {
         let text = &fmt.text;
-        writes.extend(quote! {#f.write_str(#text);});
+        writes.extend(quote! {#f.write_str(#text)?;});
     }
     for (fmt, text) in &fmt.fragments {
-        if !text.is_empty() {
-            writes.extend(quote! {#f.write_str(#text);});
-        }
         if fmt.fmt_spec.tpe.is_custom() {
             let FormatSpec {
                 fill_align,
@@ -73,9 +70,12 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
             };
             match tpe {
                 Type::Display => writes.extend(quote! {write!(#f,"{}",#arg)?;}),
-                Type::LowerHex => writes.extend(quote! {write!(#f,"{}",#arg)?;}),
+                Type::LowerHex => writes.extend(quote! {write!(#f,"{:x}",#arg)?;}),
                 _ => macro_assert!(false, format!("unsupported fmt type {tpe:?} for {arg}!")),
             }
+        }
+        if !text.is_empty() {
+            writes.extend(quote! {#f.write_str(#text)?;});
         }
     }
     writes
@@ -95,10 +95,10 @@ pub fn struct_display(tpe_ident: TokenStream, fmt: &FormatString, span: Span) ->
         }
     }
 }
-pub fn enum_display(enum_name:Ident, variants:&[(Ident,FormatString)]) -> TokenStream {
+pub fn enum_display(enum_name: Ident, variants: &[(Ident, FormatString)]) -> TokenStream {
     let f = Ident::new("qparse_fmt_ident", enum_name.span());
     let mut arms = TokenStream::new();
-    for (variant, fmt) in variants{
+    for (variant, fmt) in variants {
         let desc = type_destructure(quote! {#enum_name::#variant}, fmt, enum_name.span());
         let writes = display_writes(fmt, &f);
         arms.extend(quote! {

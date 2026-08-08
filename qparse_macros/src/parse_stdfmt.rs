@@ -42,7 +42,7 @@ impl FormatString {
         .parse(input)
     }
     /// Finds the named fields in this format string
-    pub fn named_fields(&self) -> impl Iterator<Item = &Argument> {
+    pub fn named_fields(&self) -> impl Iterator<Item = &Argument> + Clone {
         self.fragments.iter().map(|(f, _)| f.named_field())
     }
 }
