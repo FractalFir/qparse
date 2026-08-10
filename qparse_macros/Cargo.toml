@@ -7,4 +7,7 @@ edition = "2024"
 nom = "8.0.0"
 proc-macro2 = "1.0.107"
 quote = "1.0.47"
+syn = { version = "3.0.3", features = ["full"] }
 unicode-ident = "1.0.24"
+[lib]
+proc-macro=true
