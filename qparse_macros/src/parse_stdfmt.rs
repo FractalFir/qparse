@@ -189,6 +189,8 @@ impl Type {
     }
 }
 #[derive(Clone, Debug)]
+// Dead fields - fine, we just need to parse unsupported things correctly.
+#[allow(dead_code)]
 pub(crate) enum Precision {
     Count(Count),
     FromArg,
@@ -211,6 +213,8 @@ fn fill_align(input: &str) -> IResult<&str, (Option<char>, Align)> {
 }
 
 #[derive(Clone, Debug)]
+// Dead fields - fine, we just need to parse unsupported things correctly.
+#[allow(dead_code)]
 pub(crate) enum Count {
     Parameter(Argument),
     Intiger(usize),
@@ -227,8 +231,8 @@ impl Count {
 fn parameter(input: &str) -> IResult<&str, Argument> {
     (Argument::parse, char('$')).map(|(a, _)| a).parse(input)
 }
-#[derive(Clone, Debug)]
-pub(crate) enum Argument {
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Argument {
     Intiger(usize),
     Identifier(String),
 }

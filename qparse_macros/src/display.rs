@@ -47,7 +47,7 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
                 precision.is_none(),
                 "precision not supported with qparse-specific formats!"
             );
-            todo!()
+            todo!("custom parser {tpe:?} not supported!")
         } else {
             let FormatSpec {
                 fill_align,
@@ -66,7 +66,7 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
             macro_assert!(precision.is_none(), "precision not supported!");
             let arg = match &fmt.argument {
                 crate::parse_stdfmt::Argument::Intiger(i) => Ident::new(&format!("f{i}"), f.span()),
-                crate::parse_stdfmt::Argument::Identifier(i) => Ident::new(&i, f.span()),
+                crate::parse_stdfmt::Argument::Identifier(i) => Ident::new(i, f.span()),
             };
             match tpe {
                 Type::Display => writes.extend(quote! {write!(#f,"{}",#arg)?;}),

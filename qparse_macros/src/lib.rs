@@ -1,60 +1,27 @@
 use crate::{
     display::{enum_display, struct_display},
-    ir::{ParserIR, parse_for_enum, parse_for_struct},
-    parse_stdfmt::{Argument, FormatString},
+    ir::{parse_for_enum, parse_for_struct},
+    parse_stdfmt::FormatString,
 };
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{ToTokens, quote};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{ItemEnum, LitStr, spanned::Spanned};
 mod display;
+
 mod ir;
+mod utilis;
+pub(crate) use utilis::*;
 /// Module parsing the rust format strings.  
 mod parse_stdfmt;
-pub(crate) fn type_destructure_inner<'a>(
-    tpe_ident: TokenStream,
-    named_fields: impl Iterator<Item = &'a Argument> + Clone,
-    span: Span,
-) -> TokenStream {
-    // check if this is a struct OR tuple type.
-    if named_fields.clone().all(Argument::is_identifier) {
-        let fields = named_fields.map(|name| Ident::new_raw(name.as_identifier().unwrap(), span));
-        quote! {
-            #tpe_ident { #(#fields,)* }
-        }
-    } else if named_fields.clone().all(Argument::is_intiger) {
-        let mut named_fields: Vec<_> = named_fields.map(|n| *n.as_intiger().unwrap()).collect();
-        named_fields.sort();
-        let fields = named_fields
-            .into_iter()
-            .map(|name| Ident::new(&format!("f{}", name), span));
-        quote! {
-            #tpe_ident ( #(#fields,)* )
-        }
-    } else {
-        quote! {compile_error!("Nonsense mix of named / unnamed fields in", stringify!(#tpe_ident))}
-    }
-}
-pub(crate) fn type_destructure(
-    tpe_ident: TokenStream,
-    fmt: &FormatString,
-    span: Span,
-) -> TokenStream {
-    type_destructure_inner(tpe_ident, fmt.named_fields(), span)
-}
-macro_rules! macro_assert {
-    ($expect:expr, $fmt:expr) => {
-        if !$expect {
-            let fmt = $fmt;
-            return quote! { compile_error!(#fmt);};
-        }
-    };
-}
-pub(crate) use macro_assert;
-use syn::{ItemEnum, ItemStruct, LitStr, spanned::Spanned};
+
+#[cfg(test)]
 macro_rules! assert_tokens_eq {
     ($actual:expr, $expected:expr $(,)?) => {
         assert_eq!($actual.to_string(), $expected.to_string())
     };
 }
+#[cfg(test)]
+use proc_macro2::{Ident, Span};
 #[test]
 fn dest() {
     assert_tokens_eq!(
@@ -216,7 +183,7 @@ fn parse_enum() {
 
 fn qparse_inner(attr: TokenStream, item_toks: TokenStream) -> syn::Result<TokenStream> {
     let item: syn::Item = syn::parse2(item_toks.clone())?;
-    let fmt: LitStr = syn::parse2(attr.clone().into())?;
+    let fmt: LitStr = syn::parse2(attr.clone())?;
     let fmt = FormatString::parse(&fmt.value())
         .map_err(|e| syn::Error::new_spanned(&fmt, format!("invalid qparse fmt: {e}")))?
         .1;
@@ -264,7 +231,7 @@ fn qparse_inner(attr: TokenStream, item_toks: TokenStream) -> syn::Result<TokenS
                 #display_impl
             }
         }
-        _ => todo!(),
+        _ => quote! {compile_error!("qparse only supports structs / enums");},
     };
     Ok(res)
 }
@@ -325,13 +292,13 @@ fn tqparse_inner() {
                         nom::character::complete::multispace1.parse(qparse_input_ident)?;
                     let (qparse_input_ident, bar) =
                         qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
-                    Ok((qparse_input_ident, Billy { r#foo, r#bar, }))
+                    Ok((qparse_input_ident, Billy { r#bar, r#foo, }))
                 }
             }
             impl std::fmt::Display for Billy {
                 fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     use std::fmt::Write;
-                    let Billy { r#foo, r#bar, } = self;
+                    let Billy { r#bar,r#foo, } = self;
                     qparse_fmt_ident.write_str("HIA")?;
                     write!(qparse_fmt_ident, "{:x}", foo)?;
                     qparse_fmt_ident.write_str(" ")?;
@@ -357,46 +324,45 @@ fn tqparse_inner_enum() {
             },
         ),
         quote! {
-            enum BobOrNot {
-    Bob { s: String },
-    String(String)
-}
-impl std::fmt::Display for BobOrNot {
-    fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use std::fmt::Write;
-        match self {
-            BobOrNot::Bob { r#s, } => {
-                qparse_fmt_ident.write_str("bob")?;
-                write!(qparse_fmt_ident, "{}", s)?;
-            }
-            BobOrNot::String(f0,) => {
-                write!(qparse_fmt_ident, "{}", f0)?;
+        enum BobOrNot {
+            Bob { s: String },
+            String(String)
+        }
+        impl std::fmt::Display for BobOrNot {
+            fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use std::fmt::Write;
+                match self {
+                    BobOrNot::Bob { r#s ,} => {
+                        qparse_fmt_ident.write_str("bob")?;
+                        write!(qparse_fmt_ident, "{}", s)?;
+                    }
+                    BobOrNot::String(f0,) => {
+                        write!(qparse_fmt_ident, "{}", f0)?;
+                    }
+                }
+                Ok(())
             }
         }
-        Ok(())
-    }
-}
-impl qparse::Parseable<qparse::Display> for BobOrNot {
-    fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
-        use nom::Parser;
-        nom::branch::alt((
-            |qparse_input_ident| {
-                let (qparse_input_ident, _) =
-                    nom::bytes::complete::tag("bob").parse(qparse_input_ident)?;
-                let (qparse_input_ident, s) =
-                    qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
-                Ok((qparse_input_ident, BobOrNot::Bob { r#s ,}))
-            },
-            |qparse_input_ident| {
-                let (qparse_input_ident, f0) =
-                    qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
-                Ok((qparse_input_ident, BobOrNot::String(f0,)))
-            },
-        ))
-        .parse(qparse_input_ident)
-    }
-}
-
+        impl qparse::Parseable<qparse::Display> for BobOrNot {
+            fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
+                use nom::Parser;
+                nom::branch::alt((
+                    |qparse_input_ident| {
+                        let (qparse_input_ident, _) =
+                            nom::bytes::complete::tag("bob").parse(qparse_input_ident)?;
+                        let (qparse_input_ident, s) =
+                            qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
+                        Ok((qparse_input_ident, BobOrNot::Bob { r#s, }))
+                    },
+                    |qparse_input_ident| {
+                        let (qparse_input_ident, f0) =
+                            qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
+                        Ok((qparse_input_ident, BobOrNot::String(f0,)))
+                    }
+                ))
+                .parse(qparse_input_ident)
+                }
+            }
         }
     );
 }

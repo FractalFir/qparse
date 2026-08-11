@@ -29,6 +29,29 @@ pub enum ParserIR {
         variants: Vec<Self>,
     },
 }
+struct StackList<'a> {
+    arg: &'a Argument,
+    prev: Option<&'a Self>,
+}
+pub struct StackListIter<'a> {
+    node: Option<&'a StackList<'a>>,
+}
+
+impl<'a> StackList<'a> {
+    pub fn iter(&self) -> StackListIter<'_> {
+        StackListIter { node: Some(self) }
+    }
+}
+
+impl<'a> Iterator for StackListIter<'a> {
+    type Item = &'a Argument;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.node?;
+        self.node = node.prev;
+        Some(node.arg)
+    }
+}
 impl ParserIR {
     pub fn tag_adjust(&mut self) {
         match self {
@@ -45,7 +68,7 @@ impl ParserIR {
                     let inner = (**inner).clone();
                     *self = inner;
                     for (i, tag) in tags.iter().enumerate() {
-                        if i != 0 {
+                        if i != 0 && !matches!(self, Self::Whitespace{..}){
                             *self = Self::Whitespace {
                                 inner: Box::new(self.clone()),
                             };
@@ -63,12 +86,45 @@ impl ParserIR {
             ParserIR::Construct { .. } => (),
         }
     }
+    pub(crate) fn insert_verifiers(&mut self) {
+        // usize::MAX as a dummy - impossible for somebody to have a struct with enough fields to fill the address space.
+        self.insert_verifiers_inner(&StackList {
+            arg: &Argument::Intiger(usize::MAX),
+            prev: None,
+        });
+    }
+    fn insert_verifiers_inner(&mut self, prev: &StackList) {
+        match self {
+            ParserIR::Whitespace { inner } | ParserIR::Tag { inner, .. } => {
+                inner.insert_verifiers_inner(prev)
+            }
+            ParserIR::Construct { .. } => (),
+            ParserIR::Parse {
+                spec: _,
+                arg,
+                inner,
+                verifier,
+            } => {
+                if prev.iter().any(|prev| prev == arg) {
+                    *verifier = true;
+                }
+                let prev = StackList {
+                    arg,
+                    prev: Some(prev),
+                };
+                inner.insert_verifiers_inner(&prev);
+            }
+            ParserIR::Alt { variants } => variants
+                .iter_mut()
+                .for_each(|v| v.insert_verifiers_inner(prev)),
+        }
+    }
     pub fn from_fmt(fmt: &FormatString, ident: TokenStream) -> Self {
         // First: collect all the args
-        let mut root = Self::Construct {
-            ident,
-            args: fmt.named_fields().cloned().collect(),
-        };
+        let mut args: Vec<Argument> = fmt.named_fields().cloned().collect();
+        args.sort();
+        args.dedup();
+        let mut root = Self::Construct { ident, args: args };
         for (fragment, text) in fmt.fragments.iter().rev() {
             if !text.is_empty() {
                 root = Self::Tag {
@@ -95,7 +151,7 @@ impl ParserIR {
         let input = Ident::new("qparse_input_ident", span);
         match self {
             ParserIR::Construct { ident, args } => {
-                let desc = type_destructure_inner(ident.clone(), (&args[..]).iter(), span);
+                let desc = type_destructure_inner(ident.clone(), args[..].iter(), span);
                 quote! {
                     Ok((#input,#desc))
                 }
@@ -129,7 +185,7 @@ impl ParserIR {
                     precision,
                     tpe,
                 } = &spec;
-                macro_assert!(!verifier, "verifier not supported!");
+
                 macro_assert!(fill_align.is_none(), "fill_align not supported!");
                 macro_assert!(sign.is_none(), "sign not supported!");
                 macro_assert!(!alt_form, "alt_form not supported!");
@@ -150,7 +206,7 @@ impl ParserIR {
                 };
                 let arg = match &arg {
                     Argument::Intiger(i) => Ident::new(&format!("f{i}"), span),
-                    Argument::Identifier(i) => Ident::new(&i, span),
+                    Argument::Identifier(i) => Ident::new(i, span),
                 };
                 let inner = inner.to_nom(span);
                 if *verifier {
@@ -184,12 +240,37 @@ impl ParserIR {
         }
     }
     pub fn opt(&mut self) {}
+    pub fn normalize_alt(&mut self) {
+        match self {
+            ParserIR::Tag { inner, .. } | ParserIR::Whitespace { inner } => inner.normalize_alt(),
+            ParserIR::Construct { .. } => (),
+            ParserIR::Parse { inner, .. } => {
+                inner.normalize_alt();
+            }
+            ParserIR::Alt { variants } => {
+                while variants.len() > 20 {
+                    *variants = variants
+                        .chunks(20)
+                        .map(|chunk| Self::Alt {
+                            variants: chunk.to_vec(),
+                        })
+                        .collect();
+                }
+                variants.iter_mut().for_each(Self::normalize_alt);
+                if variants.len() == 1 {
+                    *self = variants[0].clone();
+                }
+            }
+        }
+    }
 }
 pub fn parse_for_struct(ident: Ident, fmt: &FormatString) -> TokenStream {
     let input = Ident::new("qparse_input_ident", ident.span());
     let mut ir = ParserIR::from_fmt(fmt, quote! {#ident});
     ir.tag_adjust();
+    ir.insert_verifiers();
     ir.opt();
+    ir.normalize_alt();
     let parser = ir.to_nom(ident.span());
     quote! {
         impl qparse::Parseable<qparse::Display> for #ident{
@@ -205,6 +286,10 @@ pub fn parse_for_enum(
     enum_name: Ident,
     variants: &[(Ident, FormatString)],
 ) -> TokenStream {
+    macro_assert!(
+        prefix.fragments.is_empty() && prefix.text.is_empty(),
+        "Enums only support per-variant parsers"
+    );
     let input = Ident::new("qparse_input_ident", enum_name.span());
     let variants = variants
         .iter()
@@ -213,7 +298,9 @@ pub fn parse_for_enum(
         variants: variants.collect(),
     };
     root.tag_adjust();
+    root.insert_verifiers();
     root.opt();
+    root.normalize_alt();
     let root = root.to_nom(enum_name.span());
     quote! {
         impl qparse::Parseable<qparse::Display> for #enum_name{
