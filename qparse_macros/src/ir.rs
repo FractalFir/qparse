@@ -58,6 +58,7 @@ impl ParserIR {
             ParserIR::Alt { variants } => variants.iter_mut().for_each(Self::tag_adjust),
             ParserIR::Parse { inner, .. } => {
                 inner.tag_adjust();
+                
             }
             ParserIR::Whitespace { inner } => inner.tag_adjust(),
             ParserIR::Tag { tag, inner } => {
@@ -68,7 +69,7 @@ impl ParserIR {
                     let inner = (**inner).clone();
                     *self = inner;
                     for (i, tag) in tags.iter().enumerate() {
-                        if i != 0 && !matches!(self, Self::Whitespace{..}){
+                        if i != 0 && !matches!(self, Self::Whitespace { .. }) {
                             *self = Self::Whitespace {
                                 inner: Box::new(self.clone()),
                             };
@@ -196,8 +197,33 @@ impl ParserIR {
                     Type::LowerHex => {
                         quote! {qparse::Parseable::<qparse::LowerHex>::parse(#input)}
                     }
+                    Type::UpperHex => {
+                        quote! {qparse::Parseable::<qparse::UpperHex>::parse(#input)}
+                    }
+                    Type::Octal => {
+                        quote! {qparse::Parseable::<qparse::Octal>::parse(#input)}
+                    }
+                    Type::Binary => {
+                        quote! {qparse::Parseable::<qparse::Octal>::parse(#input)}
+                    }
                     Type::Display => {
                         quote! {qparse::Parseable::<qparse::Display>::parse(#input)}
+                    }
+                    Type::LowerExp => {
+                        quote! {qparse::Parseable::<qparse::LowerExp>::parse(#input)}
+                    }
+                    Type::UpperExp => {
+                        quote! {qparse::Parseable::<qparse::UpperExp>::parse(#input)}
+                    }
+                    Type::Present(str) => {
+                        quote! {
+                            Ok::<_, nom::Err<nom::error::Error<&str>>>(
+                                match nom::bytes::complete::tag(#str).parse(#input) {
+                                    Ok((input, _discard)) => (input, true),
+                                    Err(_) => (#input, false),
+                                }
+                            )
+                        }
                     }
                     _ => {
                         macro_assert!(false, format!("{tpe:?} not supported in parsers!"));
@@ -215,6 +241,7 @@ impl ParserIR {
                     quote! {
                         let #before = #input;
                         let (#input, #ver) = #res?;
+                        infer_type(&#ver, &#arg);
                         if #ver != #arg{
                             return Err(nom::Err::Error(nom::error::Error::new(
                                 #before,
@@ -276,6 +303,8 @@ pub fn parse_for_struct(ident: Ident, fmt: &FormatString) -> TokenStream {
         impl qparse::Parseable<qparse::Display> for #ident{
             fn parse(#input:&str)->nom::IResult<&str, Self>{
                 use nom::Parser;
+                #[allow(dead_code)]
+                fn infer_type<T:Sized>(a:&T,b:&T){}
                 #parser
             }
         }
@@ -306,6 +335,8 @@ pub fn parse_for_enum(
         impl qparse::Parseable<qparse::Display> for #enum_name{
             fn parse(#input:&str)->nom::IResult<&str, Self>{
                 use nom::Parser;
+                #[allow(dead_code)]
+                fn infer_type<T:Sized>(a:&T,b:&T){}
                 #root
             }
         }

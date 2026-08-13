@@ -71,6 +71,7 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
             match tpe {
                 Type::Display => writes.extend(quote! {write!(#f,"{}",#arg)?;}),
                 Type::LowerHex => writes.extend(quote! {write!(#f,"{:x}",#arg)?;}),
+                Type::Present(string) => writes.extend(quote!{ if *#arg {#f.write_str(#string)?;}}),
                 _ => macro_assert!(false, format!("unsupported fmt type {tpe:?} for {arg}!")),
             }
         }

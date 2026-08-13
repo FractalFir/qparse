@@ -4,7 +4,7 @@ use crate::{
     parse_stdfmt::FormatString,
 };
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{ItemEnum, LitStr, spanned::Spanned};
 mod display;
 
@@ -75,6 +75,8 @@ fn simple_parse() {
             impl qparse::Parseable<qparse::Display> for Barely {
                 fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
                     use nom::Parser;
+                    #[allow(dead_code)]
+                    fn infer_type<T:Sized>(a:&T,b:&T){}
                     let (qparse_input_ident, _) = nom::bytes::complete::tag("foo").parse(qparse_input_ident)?;
                     let (qparse_input_ident, f0) =
                         qparse::Parseable::<qparse::Display>::parse(qparse_input_ident)?;
@@ -152,6 +154,8 @@ fn parse_enum() {
             impl qparse::Parseable<qparse::Display> for Foo {
                 fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
                     use nom::Parser;
+                    #[allow(dead_code)]
+                    fn infer_type<T:Sized>(a:&T,b:&T){}
                     nom::branch::alt((
                         |qparse_input_ident| {
                             let (qparse_input_ident, _) =
@@ -198,6 +202,9 @@ fn qparse_inner(attr: TokenStream, item_toks: TokenStream) -> syn::Result<TokenS
                 brace_token,
                 mut variants,
             } = item_enum;
+            if !generics.clone().into_token_stream().is_empty() {
+                return Ok(quote! {compile_error!("qparse does not support generics");});
+            }
             let mut variant_defs = vec![];
             for variant in &mut variants {
                 let def = take_def_attr(&mut variant.attrs)?;
@@ -222,6 +229,9 @@ fn qparse_inner(attr: TokenStream, item_toks: TokenStream) -> syn::Result<TokenS
             quote! {#enm #disp #parse}
         }
         syn::Item::Struct(item_struct) => {
+            if !item_struct.generics.clone().into_token_stream().is_empty() {
+                return Ok(quote! {compile_error!("qparse does not support generics");});
+            }
             let ident = item_struct.ident.clone();
             let display_impl = struct_display(quote! {#ident}, &fmt, attr.span());
             let parser_impl = parse_for_struct(ident, &fmt);
@@ -285,6 +295,8 @@ fn tqparse_inner() {
             impl qparse::Parseable<qparse::Display> for Billy {
                 fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
                     use nom::Parser;
+                    #[allow(dead_code)]
+                    fn infer_type<T:Sized>(a:&T,b:&T){}
                     let (qparse_input_ident, _) = nom::bytes::complete::tag("HIA").parse(qparse_input_ident)?;
                     let (qparse_input_ident, foo) =
                         qparse::Parseable::<qparse::LowerHex>::parse(qparse_input_ident)?;
@@ -346,6 +358,8 @@ fn tqparse_inner_enum() {
         impl qparse::Parseable<qparse::Display> for BobOrNot {
             fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
                 use nom::Parser;
+                #[allow(dead_code)]
+                fn infer_type<T:Sized>(a:&T,b:&T){}
                 nom::branch::alt((
                     |qparse_input_ident| {
                         let (qparse_input_ident, _) =
@@ -365,4 +379,40 @@ fn tqparse_inner_enum() {
             }
         }
     );
+}
+#[test]
+fn present() {
+    assert_tokens_eq!(qparse_err(quote! {"{dot_sat:present(.sat)}"},quote! {
+        struct DotSat{
+            dot_sat:bool,
+        }
+    }), quote! {
+        struct DotSat {
+            dot_sat: bool,
+        }
+        impl qparse::Parseable<qparse::Display> for DotSat {
+            fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
+                use nom::Parser;
+                #[allow(dead_code)]
+                fn infer_type<T: Sized>(a: &T, b: &T) {}
+                let (qparse_input_ident, dot_sat) = Ok::<_, nom::Err<nom::error::Error<&str>>>(
+                match nom::bytes::complete::tag(".sat").parse(qparse_input_ident) {
+                    Ok((input, _discard)) => (input, true),
+                    Err(_) => (qparse_input_ident, false),
+                }
+                )?;
+                Ok((qparse_input_ident, DotSat { r#dot_sat, }))
+            }
+        }
+        impl std::fmt::Display for DotSat {
+            fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use std::fmt::Write;
+                let DotSat { r#dot_sat, } = self;
+                if *dot_sat {
+                    qparse_fmt_ident.write_str(".sat")?;
+                }
+                Ok(())
+            }
+        }
+    })
 }

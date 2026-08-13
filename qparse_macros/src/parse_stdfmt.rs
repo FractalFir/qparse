@@ -20,7 +20,7 @@ use nom::{
     IResult, Parser,
     branch::alt,
     bytes::{
-        complete::{take_till, take_while},
+        complete::{take_till, take_until, take_while},
         tag,
     },
     character::complete::{anychar, char, multispace0, satisfy},
@@ -28,18 +28,19 @@ use nom::{
     multi::many0,
     sequence::{delimited, preceded},
 };
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FormatString {
     pub text: String,
     pub fragments: Vec<(Format, String)>,
 }
 impl FormatString {
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        nom::combinator::all_consuming(
-            (text, many0((Format::parse, text)))
-                .map(|(text, fragments)| FormatString { text, fragments }),
-        )
-        .parse(input)
+        nom::combinator::all_consuming(Self::parse_inner).parse(input)
+    }
+    pub fn parse_inner(input: &str) -> IResult<&str, Self> {
+        (text, many0((Format::parse, text)))
+            .map(|(text, fragments)| FormatString { text, fragments })
+            .parse(input)
     }
     /// Finds the named fields in this format string
     pub fn named_fields(&self) -> impl Iterator<Item = &Argument> + Clone {
@@ -68,7 +69,7 @@ fn text(mut input: &str) -> IResult<&str, String> {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Format {
     pub argument: Argument,
     pub fmt_spec: FormatSpec,
@@ -165,6 +166,7 @@ pub(crate) enum Type {
     UpperExp,
     LowerExp,
     Pointer,
+    Present(String),
 }
 impl Type {
     pub fn is_custom(&self) -> bool {
@@ -172,6 +174,13 @@ impl Type {
     }
     fn parse(input: &str) -> IResult<&str, Self> {
         alt((
+            // All custom must be first!
+            preceded(
+                tag("present"),
+                delimited(char('('), take_until(")"), char(')')),
+            )
+            .map(|body: &str| Type::Present(body.to_owned())),
+            // Stock
             value(Type::DebugLowerHex, tag("x?")),
             value(Type::DebugUpperHex, tag("X?")),
             value(Type::Debug, char('?')),
