@@ -204,7 +204,7 @@ impl ParserIR {
                         quote! {qparse::Parseable::<qparse::Octal>::parse(#input)}
                     }
                     Type::Binary => {
-                        quote! {qparse::Parseable::<qparse::Octal>::parse(#input)}
+                        quote! {qparse::Parseable::<qparse::Binary>::parse(#input)}
                     }
                     Type::Display => {
                         quote! {qparse::Parseable::<qparse::Display>::parse(#input)}

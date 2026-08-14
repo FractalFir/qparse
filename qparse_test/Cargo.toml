@@ -1,0 +1,10 @@
+[package]
+name = "qparse_test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nom = "8.0.0"
+qparse = {path = "../qparse"}
+qparse_macros = {path = "../qparse_macros"}
+
