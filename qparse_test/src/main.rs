@@ -5,6 +5,10 @@ use qparse_macros::qparse;
 struct SomeInstr {
     some_val: u64,
 }
+#[qparse("{sat:present(.sat)}")]
+struct DotSat {
+    sat: bool,
+}
 #[derive(Debug, PartialEq)]
 #[qparse("call @llvm.same_bitwidth(i{width} {some_val},i{width} {other_val})")]
 struct VerifierTest {
@@ -41,8 +45,7 @@ fn verifier() {
             width: 16
         }
     );
-    assert!(VerifierTest::parse("call @llvm.same_bitwidth(i16 67,i8 123)")
-            .is_err());
+    assert!(VerifierTest::parse("call @llvm.same_bitwidth(i16 67,i8 123)").is_err());
 }
 fn main() {
     println!(

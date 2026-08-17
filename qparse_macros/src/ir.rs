@@ -218,7 +218,7 @@ impl ParserIR {
                     Type::Present(str) => {
                         quote! {
                             Ok::<_, nom::Err<nom::error::Error<&str>>>(
-                                match nom::bytes::complete::tag(#str).parse(#input) {
+                                match nom::bytes::complete::tag::<_,_,nom::error::Error<&str>>(#str).parse(#input) {
                                     Ok((input, _discard)) => (input, true),
                                     Err(_) => (#input, false),
                                 }
