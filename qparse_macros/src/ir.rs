@@ -58,7 +58,6 @@ impl ParserIR {
             ParserIR::Alt { variants } => variants.iter_mut().for_each(Self::tag_adjust),
             ParserIR::Parse { inner, .. } => {
                 inner.tag_adjust();
-                
             }
             ParserIR::Whitespace { inner } => inner.tag_adjust(),
             ParserIR::Tag { tag, inner } => {

@@ -74,7 +74,9 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
                 Type::UpperHex => writes.extend(quote! {write!(#f,"{:X}",#arg)?;}),
                 Type::Binary => writes.extend(quote! {write!(#f,"{:b}",#arg)?;}),
                 Type::Octal => writes.extend(quote! {write!(#f,"{:o}",#arg)?;}),
-                Type::Present(string) => writes.extend(quote!{ if *#arg {#f.write_str(#string)?;}}),
+                Type::Present(string) => {
+                    writes.extend(quote! { if *#arg {#f.write_str(#string)?;}})
+                }
                 _ => macro_assert!(false, format!("unsupported fmt type {tpe:?} for {arg}!")),
             }
         }

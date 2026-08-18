@@ -382,37 +382,43 @@ fn tqparse_inner_enum() {
 }
 #[test]
 fn present() {
-    assert_tokens_eq!(qparse_err(quote! {"{dot_sat:present(.sat)}"},quote! {
-        struct DotSat{
-            dot_sat:bool,
-        }
-    }), quote! {
-        struct DotSat {
-            dot_sat: bool,
-        }
-        impl qparse::Parseable<qparse::Display> for DotSat {
-            fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
-                use nom::Parser;
-                #[allow(dead_code)]
-                fn infer_type<T: Sized>(a: &T, b: &T) {}
-                let (qparse_input_ident, dot_sat) = Ok::<_, nom::Err<nom::error::Error<&str>>>(
-                match nom::bytes::complete::tag(".sat").parse(qparse_input_ident) {
-                    Ok((input, _discard)) => (input, true),
-                    Err(_) => (qparse_input_ident, false),
+    assert_tokens_eq!(
+        qparse_err(
+            quote! {"{dot_sat:present(.sat)}"},
+            quote! {
+                struct DotSat{
+                    dot_sat:bool,
                 }
-                )?;
-                Ok((qparse_input_ident, DotSat { r#dot_sat, }))
+            }
+        ),
+        quote! {
+            struct DotSat {
+                dot_sat: bool,
+            }
+            impl qparse::Parseable<qparse::Display> for DotSat {
+                fn parse(qparse_input_ident: &str) -> nom::IResult<&str, Self> {
+                    use nom::Parser;
+                    #[allow(dead_code)]
+                    fn infer_type<T: Sized>(a: &T, b: &T) {}
+                    let (qparse_input_ident, dot_sat) = Ok::<_, nom::Err<nom::error::Error<&str>>>(
+                    match nom::bytes::complete::tag(".sat").parse(qparse_input_ident) {
+                        Ok((input, _discard)) => (input, true),
+                        Err(_) => (qparse_input_ident, false),
+                    }
+                    )?;
+                    Ok((qparse_input_ident, DotSat { r#dot_sat, }))
+                }
+            }
+            impl std::fmt::Display for DotSat {
+                fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    use std::fmt::Write;
+                    let DotSat { r#dot_sat, } = self;
+                    if *dot_sat {
+                        qparse_fmt_ident.write_str(".sat")?;
+                    }
+                    Ok(())
+                }
             }
         }
-        impl std::fmt::Display for DotSat {
-            fn fmt(&self, qparse_fmt_ident: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                use std::fmt::Write;
-                let DotSat { r#dot_sat, } = self;
-                if *dot_sat {
-                    qparse_fmt_ident.write_str(".sat")?;
-                }
-                Ok(())
-            }
-        }
-    })
+    )
 }

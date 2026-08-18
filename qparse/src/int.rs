@@ -140,14 +140,14 @@ macro_rules! u {
         }
     };
 }
-macro_rules! i{
+macro_rules! i {
     ($i:ident) => {
         impl crate::Parseable<crate::Display> for $i {
             fn parse(input: &str) -> nom::IResult<&str, Self> {
                 nom::character::complete::$i(input)
             }
         }
-    }
+    };
 }
 u! {u8,NonZeroU8}
 u! {u16,NonZeroU16}
