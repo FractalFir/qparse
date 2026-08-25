@@ -25,8 +25,19 @@ impl crate::Parseable<crate::Display> for f64 {
     }
 }
 
-impl<T:Parseable<P>,P> crate::Parseable<P> for Box<T> {
+impl<T: Parseable<P>, P> crate::Parseable<P> for Box<T> {
     fn parse(input: &str) -> nom::IResult<&str, Self> {
-        <T as crate::Parseable<P>>::parse.map(|t|Box::new(t)).parse(input)
+        <T as crate::Parseable<P>>::parse
+            .map(|t| Box::new(t))
+            .parse(input)
+    }
+}
+impl Parseable<Display> for bool {
+    fn parse(input: &str) -> nom::IResult<&str, Self> {
+        nom::branch::alt((
+            nom::combinator::value(true, nom::bytes::complete::tag("true")),
+            nom::combinator::value(false, nom::bytes::complete::tag("false")),
+        ))
+        .parse(input)
     }
 }
