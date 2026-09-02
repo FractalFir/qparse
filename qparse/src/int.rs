@@ -3,14 +3,14 @@ macro_rules! u {
         impl crate::Parseable<crate::Display> for $u {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 nom::character::complete::$u(input)
             }
         }
         impl crate::Parseable<crate::Octal> for $u {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::oct_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 8)
@@ -21,7 +21,7 @@ macro_rules! u {
         impl crate::Parseable<crate::Binary> for $u {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::bin_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 2)
@@ -32,7 +32,7 @@ macro_rules! u {
         impl crate::Parseable<crate::UpperHex> for $u {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::hex_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 16)
@@ -43,7 +43,7 @@ macro_rules! u {
         impl crate::Parseable<crate::LowerHex> for $u {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::hex_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 16)
@@ -54,7 +54,7 @@ macro_rules! u {
         impl crate::Parseable<crate::Display> for std::num::$nonzero {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::Display>>::parse,
@@ -66,7 +66,7 @@ macro_rules! u {
         impl crate::Parseable<crate::LowerHex> for std::num::$nonzero {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::LowerHex>>::parse,
@@ -78,7 +78,7 @@ macro_rules! u {
         impl crate::Parseable<crate::UpperHex> for std::num::$nonzero {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::LowerHex>>::parse,
@@ -161,7 +161,7 @@ macro_rules! i {
         impl crate::Parseable<crate::Display> for $i {
             fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
+        E: crate::QParseError<'a> {
                 nom::character::complete::$i(input)
             }
         }

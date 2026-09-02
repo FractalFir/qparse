@@ -304,7 +304,7 @@ pub fn parse_for_struct(ident: Ident, fmt: &FormatString) -> TokenStream {
         impl qparse::Parseable<qparse::Display> for #ident{
             fn parse<'a, E>(#input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError>{
+        E: qparse::QParseError<'a>{
                 use nom::Parser;
                 #[allow(dead_code)]
                 fn infer_type<T:Sized>(a:&T,b:&T){}
@@ -338,7 +338,7 @@ pub fn parse_for_enum(
         impl qparse::Parseable<qparse::Display> for #enum_name{
             fn parse<'a, E>(#input: &'a str) -> nom::IResult<&'a str, Self, E>
     where
-        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError>{
+        E: qparse::QParseError<'a>{
                 use nom::Parser;
                 #[allow(dead_code)]
                 fn infer_type<T:Sized>(a:&T,b:&T){}
