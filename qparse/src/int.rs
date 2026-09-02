@@ -1,12 +1,16 @@
 macro_rules! u {
     ($u:ident,$nonzero:ident) => {
         impl crate::Parseable<crate::Display> for $u {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 nom::character::complete::$u(input)
             }
         }
         impl crate::Parseable<crate::Octal> for $u {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::oct_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 8)
@@ -15,7 +19,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::Binary> for $u {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::bin_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 2)
@@ -24,7 +30,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::UpperHex> for $u {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::hex_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 16)
@@ -33,7 +41,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::LowerHex> for $u {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_res(nom::character::complete::hex_digit1, |s: &str| {
                     <$u>::from_str_radix(s, 16)
@@ -42,7 +52,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::Display> for std::num::$nonzero {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::Display>>::parse,
@@ -52,7 +64,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::LowerHex> for std::num::$nonzero {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::LowerHex>>::parse,
@@ -62,7 +76,9 @@ macro_rules! u {
             }
         }
         impl crate::Parseable<crate::UpperHex> for std::num::$nonzero {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 use nom::Parser;
                 nom::combinator::map_opt(
                     <$u as crate::Parseable<crate::LowerHex>>::parse,
@@ -76,7 +92,7 @@ macro_rules! u {
             #[test]
             fn disp_0() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::Display>>::parse("0")
+                    <$u as crate::Parseable<crate::Display>>::simple_parse("0")
                         .unwrap()
                         .1,
                     0
@@ -85,7 +101,7 @@ macro_rules! u {
             #[test]
             fn disp_max() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::Display>>::parse(&$u::MAX.to_string())
+                    <$u as crate::Parseable<crate::Display>>::simple_parse(&$u::MAX.to_string())
                         .unwrap()
                         .1,
                     $u::MAX
@@ -94,7 +110,7 @@ macro_rules! u {
             #[test]
             fn octal_0() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::Octal>>::parse("0")
+                    <$u as crate::Parseable<crate::Octal>>::simple_parse("0")
                         .unwrap()
                         .1,
                     0
@@ -102,12 +118,12 @@ macro_rules! u {
             }
             #[test]
             fn octal_9_is_err() {
-                assert!(<$u as crate::Parseable<crate::Octal>>::parse("9").is_err());
+                assert!(<$u as crate::Parseable<crate::Octal>>::simple_parse("9").is_err());
             }
             #[test]
             fn bin_0() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::Binary>>::parse("0")
+                    <$u as crate::Parseable<crate::Binary>>::simple_parse("0")
                         .unwrap()
                         .1,
                     0
@@ -116,7 +132,7 @@ macro_rules! u {
             #[test]
             fn bin_67() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::Binary>>::parse("1000011")
+                    <$u as crate::Parseable<crate::Binary>>::simple_parse("1000011")
                         .unwrap()
                         .1,
                     67
@@ -125,13 +141,13 @@ macro_rules! u {
             #[test]
             fn hex_0() {
                 assert_eq!(
-                    <$u as crate::Parseable<crate::LowerHex>>::parse("0")
+                    <$u as crate::Parseable<crate::LowerHex>>::simple_parse("0")
                         .unwrap()
                         .1,
                     0
                 );
                 assert_eq!(
-                    <$u as crate::Parseable<crate::UpperHex>>::parse("0")
+                    <$u as crate::Parseable<crate::UpperHex>>::simple_parse("0")
                         .unwrap()
                         .1,
                     0
@@ -143,7 +159,9 @@ macro_rules! u {
 macro_rules! i {
     ($i:ident) => {
         impl crate::Parseable<crate::Display> for $i {
-            fn parse(input: &str) -> nom::IResult<&str, Self> {
+            fn parse<'a, E>(input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError> {
                 nom::character::complete::$i(input)
             }
         }

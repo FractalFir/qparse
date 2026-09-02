@@ -216,8 +216,8 @@ impl ParserIR {
                     }
                     Type::Present(str) => {
                         quote! {
-                            Ok::<_, nom::Err<nom::error::Error<&str>>>(
-                                match nom::bytes::complete::tag::<_,_,nom::error::Error<&str>>(#str).parse(#input) {
+                            Ok::<_, nom::Err<E>>(
+                                match nom::bytes::complete::tag::<_,_,E>(#str).parse(#input) {
                                     Ok((input, _discard)) => (input, true),
                                     Err(_) => (#input, false),
                                 }
@@ -242,10 +242,12 @@ impl ParserIR {
                         let (#input, #ver) = #res?;
                         infer_type(&#ver, &#arg);
                         if #ver != #arg{
-                            return Err(nom::Err::Error(nom::error::Error::new(
-                                #before,
-                                nom::error::ErrorKind::Verify,
-                            )));
+                            return Err(nom::Err::Error(
+                                <E as nom::error::ParseError<&str>>::from_error_kind(
+                                    #before,
+                                    nom::error::ErrorKind::Verify,
+                                ),
+                            ));
                         }
                         #inner
                     }
@@ -300,7 +302,9 @@ pub fn parse_for_struct(ident: Ident, fmt: &FormatString) -> TokenStream {
     let parser = ir.to_nom(ident.span());
     quote! {
         impl qparse::Parseable<qparse::Display> for #ident{
-            fn parse(#input:&str)->nom::IResult<&str, Self>{
+            fn parse<'a, E>(#input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError>{
                 use nom::Parser;
                 #[allow(dead_code)]
                 fn infer_type<T:Sized>(a:&T,b:&T){}
@@ -332,7 +336,9 @@ pub fn parse_for_enum(
     let root = root.to_nom(enum_name.span());
     quote! {
         impl qparse::Parseable<qparse::Display> for #enum_name{
-            fn parse(#input:&str)->nom::IResult<&str, Self>{
+            fn parse<'a, E>(#input: &'a str) -> nom::IResult<&'a str, Self, E>
+    where
+        E: nom::error::ParseError<&'a str>+ nom::error::FromExternalError<&'a str, std::num::ParseIntError>{
                 use nom::Parser;
                 #[allow(dead_code)]
                 fn infer_type<T:Sized>(a:&T,b:&T){}

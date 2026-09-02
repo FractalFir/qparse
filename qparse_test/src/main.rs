@@ -19,14 +19,16 @@ struct VerifierTest {
 #[test]
 fn some_instr_parse() {
     assert_eq!(
-        SomeInstr::parse("call @llvm.uwu.owo(i64 67)").unwrap().1,
+        SomeInstr::simple_parse("call @llvm.uwu.owo(i64 67)")
+            .unwrap()
+            .1,
         SomeInstr { some_val: 67 }
     );
 }
 #[test]
 fn verifier() {
     assert_eq!(
-        VerifierTest::parse("call @llvm.same_bitwidth(i8 67,i8 123)")
+        VerifierTest::simple_parse("call @llvm.same_bitwidth(i8 67,i8 123)")
             .unwrap()
             .1,
         VerifierTest {
@@ -36,7 +38,7 @@ fn verifier() {
         }
     );
     assert_eq!(
-        VerifierTest::parse("call @llvm.same_bitwidth(i16 67,i16 123)")
+        VerifierTest::simple_parse("call @llvm.same_bitwidth(i16 67,i16 123)")
             .unwrap()
             .1,
         VerifierTest {
@@ -45,7 +47,7 @@ fn verifier() {
             width: 16
         }
     );
-    assert!(VerifierTest::parse("call @llvm.same_bitwidth(i16 67,i8 123)").is_err());
+    assert!(VerifierTest::simple_parse("call @llvm.same_bitwidth(i16 67,i8 123)").is_err());
 }
 fn main() {
     println!(
