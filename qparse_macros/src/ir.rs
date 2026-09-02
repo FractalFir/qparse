@@ -224,6 +224,10 @@ impl ParserIR {
                             )
                         }
                     }
+                    Type::Cut(inner)=>match inner.as_ref(){
+                        Type::Display => quote! {nom::combinator::cut(qparse::Parseable::<qparse::Display>::parse).parse(#input)},
+                        _=>todo!("{inner:?} not supported with nom parser cuts"),
+                    },
                     _ => {
                         macro_assert!(false, format!("{tpe:?} not supported in parsers!"));
                         todo!();

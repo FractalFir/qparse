@@ -68,6 +68,7 @@ pub fn display_writes(fmt: &FormatString, f: &Ident) -> TokenStream {
                 crate::parse_stdfmt::Argument::Intiger(i) => Ident::new(&format!("f{i}"), f.span()),
                 crate::parse_stdfmt::Argument::Identifier(i) => Ident::new(i, f.span()),
             };
+            let tpe = if let Type::Cut(tpe) = tpe {&**tpe} else {tpe};
             match tpe {
                 Type::Display => writes.extend(quote! {write!(#f,"{}",#arg)?;}),
                 Type::LowerHex => writes.extend(quote! {write!(#f,"{:x}",#arg)?;}),

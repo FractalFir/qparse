@@ -10,7 +10,7 @@ struct DotSat {
     sat: bool,
 }
 #[derive(Debug, PartialEq)]
-#[qparse("call @llvm.same_bitwidth(i{width} {some_val},i{width} {other_val})")]
+#[qparse("call @llvm.same_bitwidth(i{width} {some_val},i{width:cut()} {other_val})")]
 struct VerifierTest {
     some_val: u64,
     width: u8,

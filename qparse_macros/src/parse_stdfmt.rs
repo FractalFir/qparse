@@ -167,6 +167,7 @@ pub(crate) enum Type {
     LowerExp,
     Pointer,
     Present(String),
+    Cut(Box<Self>)
 }
 impl Type {
     pub fn is_custom(&self) -> bool {
@@ -180,6 +181,11 @@ impl Type {
                 delimited(char('('), take_until(")"), char(')')),
             )
             .map(|body: &str| Type::Present(body.to_owned())),
+            preceded(
+                tag("cut"),
+                delimited(char('('), Self::parse, char(')')),
+            )
+            .map(|body:Self| Type::Cut(Box::new(body))),
             // Stock
             value(Type::DebugLowerHex, tag("x?")),
             value(Type::DebugUpperHex, tag("X?")),
